@@ -61,9 +61,9 @@ final class ChordFreer {
      */
     static void install(DexKitBridge bridge, ClassLoader cl) {
         Method router = locate(bridge, cl, "keypad router", ANCHOR, 0);
-        if (router == null) { Log.e(TAG, "keypad router not found; chord pass-through disabled"); return; }
+        if (router == null) { Hook.status("keypad router not found; chord pass-through disabled"); return; }
         Method register = locate(bridge, cl, "keypad registration", REGISTER_ANCHOR, 2);
-        if (register == null) { Log.e(TAG, "keypad registration not found; chord pass-through disabled"); return; }
+        if (register == null) { Hook.status("keypad registration not found; chord pass-through disabled"); return; }
         XposedBridge.hookMethod(register, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam param) {
                 if (registry != null) return;
@@ -75,7 +75,7 @@ final class ChordFreer {
                 try { route(param); } catch (Throwable t) { Log.e(TAG, "chord pass-through failed", t); }
             }
         });
-        Log.i(TAG, "chord pass-through installed on " + router.getDeclaringClass().getName() + "." + router.getName());
+        Hook.status("chord pass-through installed on " + router.getDeclaringClass().getName() + "." + router.getName());
     }
 
     /** Whether the Orbit display is registered with Orbit's keypad. Orbit drops a callback whose process has died. */
@@ -93,7 +93,7 @@ final class ChordFreer {
             Log.i(TAG, what + " = " + md.getClassName() + "." + md.getName());
             return md.getMethodInstance(cl);
         } catch (Throwable t) {
-            Log.e(TAG, "DexKit lookup of " + what + " failed", t);
+            Hook.status("DexKit lookup of " + what + " failed", t);
             return null;
         }
     }

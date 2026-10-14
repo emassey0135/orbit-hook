@@ -49,6 +49,20 @@ public class Hook implements IXposedHookLoadPackage {
 
     final Map<String, long[]> selfVoicing = new HashMap<>();
 
+    /**
+     * Log how starting up went, also to LSPosed's own log, which keeps all of each boot whatever the size of Android's
+     * log. Setup reads it there to check that the hook works.
+     */
+    static void status(String message) {
+        Log.i(TAG, message);
+        XposedBridge.log(TAG + ": " + message);
+    }
+
+    static void status(String message, Throwable t) {
+        Log.e(TAG, message, t);
+        XposedBridge.log(TAG + ": " + message + ": " + t);
+    }
+
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lp) throws Throwable {
         if (AlarmFix.PACKAGE.equals(lp.packageName)) {
             try { new AlarmFix().install(); } catch (Throwable t) { Log.e(TAG, "alarm fix not installed", t); }
@@ -60,7 +74,7 @@ public class Hook implements IXposedHookLoadPackage {
         for (Class<?> k = c; k != null && m == null; k = k.getSuperclass()) {
             try { m = k.getDeclaredMethod("onAccessibilityEvent", AccessibilityEvent.class); } catch (NoSuchMethodException ignored) { }
         }
-        if (m == null) { Log.e(TAG, "onAccessibilityEvent not found"); return; }
+        if (m == null) { status("onAccessibilityEvent not found"); return; }
         XposedBridge.hookMethod(m, new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam param) {
                 try { filter(param); } catch (Throwable t) { Log.e(TAG, "filter failed", t); }
@@ -75,7 +89,7 @@ public class Hook implements IXposedHookLoadPackage {
                 RemoteMode.install(bridge, lp.classLoader);
             }
         } catch (Throwable t) {
-            Log.e(TAG, "DexKit unavailable; chord pass-through and remote mode shortcuts disabled", t);
+            status("DexKit unavailable; chord pass-through and remote mode shortcuts disabled", t);
         }
     }
 
