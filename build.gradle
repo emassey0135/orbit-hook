@@ -1,0 +1,84 @@
+plugins {
+    id 'com.android.application' version '9.4.1'
+}
+
+// Release builds are signed with the key described in keystore.properties (not committed), when it exists:
+// storeFile, storePassword, keyAlias, keyPassword.
+def keystoreFile = rootProject.file('keystore.properties')
+def keystore = new Properties()
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystore.load(it) }
+}
+
+android {
+    namespace = 'dev.emassey0135.orbithook'
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = 'dev.emassey0135.orbithook'
+        minSdk = 30
+        // The Orbit Speak and Orbit Player run Android 11.
+        targetSdk = 30
+        versionCode = 1
+        versionName = '0.1.0'
+        // The Orbit Speak and Orbit Player are 64-bit ARM, and the Orbit apps the hook runs in start as 64-bit
+        // processes, so only DexKit's arm64 library is needed.
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    buildFeatures {
+        aidl = true
+        buildConfig = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    signingConfigs {
+        if (keystoreFile.exists()) {
+            release {
+                storeFile = rootProject.file(keystore['storeFile'])
+                storePassword = keystore['storePassword']
+                keyAlias = keystore['keyAlias']
+                keyPassword = keystore['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // LSPosed loads the module's classes by name, and the hooks find Orbit's code by reflection.
+            minifyEnabled = false
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.release
+            }
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // LSPosed loads native libraries (DexKit's) straight from the APK, so they must be stored
+            // uncompressed and page-aligned rather than extracted at install.
+            useLegacyPackaging = false
+        }
+    }
+
+    lint {
+        // targetSdk stays at Android 11, the version the Orbit devices run; this isn't a Play Store app.
+        disable 'ExpiredTargetSdkVersion', 'OldTargetApi'
+    }
+}
+
+dependencies {
+    compileOnly project(':xposed-api-stubs')
+    // Finds Orbit's obfuscated keypad router and remote mode handler by the strings they use. It brings
+    // FlatBuffers at runtime.
+    implementation 'org.luckypray:dexkit:2.0.6'
+    // DexKit's API uses Kotlin types, but it only declares the Kotlin library for runtime (and an old version).
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+    testImplementation 'junit:junit:4.13.2'
+}

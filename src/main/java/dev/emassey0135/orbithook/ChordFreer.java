@@ -1,4 +1,4 @@
-package orbithook;
+package dev.emassey0135.orbithook;
 
 import android.os.Bundle;
 import android.os.PowerManager;

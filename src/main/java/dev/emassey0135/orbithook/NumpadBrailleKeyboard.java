@@ -1,4 +1,4 @@
-package orbithook;
+package dev.emassey0135.orbithook;
 
 import java.util.TreeSet;
 

@@ -1,4 +1,4 @@
-package orbithook;
+package dev.emassey0135.orbithook;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;

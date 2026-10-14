@@ -1,4 +1,8 @@
+.gradle/
 build/
-out/
-libs/
+*/build/
+local.properties
+keystore.properties
+*.jks
+*.keystore
 *.log

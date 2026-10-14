@@ -1,0 +1,10 @@
+// The parts of the Xposed API this module uses, compiled against but never packaged: LSPosed supplies the real
+// classes at runtime.
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}

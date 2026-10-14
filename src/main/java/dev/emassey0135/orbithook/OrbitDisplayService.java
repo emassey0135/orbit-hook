@@ -1,4 +1,4 @@
-package orbithook;
+package dev.emassey0135.orbithook;
 
 import android.app.Service;
 import android.content.ComponentName;
@@ -31,8 +31,8 @@ import fyi.quin.backtalk.braille.IBrailleDisplayHost;
  */
 public final class OrbitDisplayService extends Service {
     static final String TAG = "OrbitDisplay";
-    /** The name this app registers with Orbit's keypad under. */
-    static final String KEYPAD_NAME = "io.github.orbithook";
+    /** The name this app registers with Orbit's keypad under: its own app ID. */
+    static final String KEYPAD_NAME = BuildConfig.APPLICATION_ID;
     private static final String DISPLAY_NAME = "Orbit";
 
     private final NumpadBrailleKeyboard numpad = new NumpadBrailleKeyboard();
