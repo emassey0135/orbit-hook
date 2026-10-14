@@ -24,7 +24,7 @@ import org.luckypray.dexkit.DexKitBridge;
 
 /**
  * Keeps Orbit's screen reader out of apps that something else speaks for (and loads {@link AlarmFix} into the alarm clock):
- * apps that declare the self-voicing meta-data, and third-party apps while another screen reader is enabled.
+ * apps that declare the self-voicing meta-data, and third-party apps while Backtalk reads them with the Orbit display.
  * Only Android API names are hooked, so obfuscation in Orbit's builds doesn't affect it.
  */
 public class Hook implements IXposedHookLoadPackage {
@@ -34,11 +34,11 @@ public class Hook implements IXposedHookLoadPackage {
     /** Package name Orbit sees for windows it should leave alone; any com.orbit. name puts it in native mode. */
     static final String ALIAS = "com.orbit.external";
     static final String SELF_VOICING = "orbit.self_voicing";
-    static final String[] OTHER_READERS = {"fyi.quin.backtalk/", "com.google.android.marvin.talkback/"};
+    static final String BACKTALK = "fyi.quin.backtalk/";
     static final long CACHE_MS = 10_000;
 
     /**
-     * True while the foreground app is one BackTalk handles: a third-party app, with another reader enabled, that is
+     * True while the foreground app is one Backtalk handles: a third-party app, with Backtalk enabled, that is
      * NOT self-voicing. Only then does {@link ChordFreer} divert Orbit's command chords. Self-voicing and com.orbit
      * apps leave this false, so Orbit keeps handling their review chords as usual.
      */
@@ -114,22 +114,27 @@ public class Hook implements IXposedHookLoadPackage {
         }
     }
 
+    /**
+     * Whether Orbit should stay quiet in {@code pkg}. For Backtalk, that needs the Orbit display registered too: without
+     * it Backtalk can't be used from the keypad, so Orbit keeps speaking rather than leave the app silent.
+     */
     boolean handledElsewhere(Context context, String pkg) {
         if (pkg.startsWith("com.orbit.") || pkg.contains("inputmethod")) return false;
-        return isSelfVoicing(context, pkg) || otherReaderEnabled(context);
+        return isSelfVoicing(context, pkg) || (backtalkEnabled(context) && ChordFreer.displayRegistered());
     }
 
-    /** A third-party app BackTalk drives (another reader enabled, not self-voicing): the only case where chords are diverted. */
+    /**
+     * A third-party app Backtalk drives (Backtalk enabled, not self-voicing): the only case where chords are diverted.
+     * {@link ChordFreer} checks that the Orbit display is registered on each key, so it doesn't matter here.
+     */
     boolean backtalkHandled(Context context, String pkg) {
         if (pkg.startsWith("com.orbit.") || pkg.contains("inputmethod")) return false;
-        return otherReaderEnabled(context) && !isSelfVoicing(context, pkg);
+        return backtalkEnabled(context) && !isSelfVoicing(context, pkg);
     }
 
-    boolean otherReaderEnabled(Context context) {
+    boolean backtalkEnabled(Context context) {
         String enabled = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (enabled == null) return false;
-        for (String r : OTHER_READERS) if (enabled.contains(r)) return true;
-        return false;
+        return enabled != null && enabled.contains(BACKTALK);
     }
 
     boolean isSelfVoicing(Context context, String pkg) {

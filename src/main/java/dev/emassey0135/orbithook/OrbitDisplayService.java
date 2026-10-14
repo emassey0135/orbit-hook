@@ -20,8 +20,9 @@ import fyi.quin.backtalk.braille.IBrailleDisplayHost;
 /**
  * The Orbit's built-in keys as a braille display for Backtalk, through Backtalk's braille display API.
  *
- * <p>Backtalk binds this service once the user has granted this app Backtalk's braille display permission. It then
- * registers with Orbit's screen reader for keypad events under this app's package name ({@link #KEYPAD_NAME}); the
+ * <p>Backtalk binds this service once the user has granted this app Backtalk's braille display permission. Once Backtalk
+ * has connected to it as the display's host, it registers with Orbit's screen reader for keypad events under this
+ * app's package name ({@link #KEYPAD_NAME}), and Orbit's screen reader stays quiet in the apps Backtalk reads; the
  * hook in Orbit's screen reader ({@link ChordFreer}) hands the keypad to that name while the app in front is one
  * Backtalk reads, and Orbit's own apps and self-voicing apps take it back themselves. Keys are turned into braille keys
  * and commands here, so Backtalk knows nothing about Orbit.
@@ -43,7 +44,9 @@ public final class OrbitDisplayService extends Service {
     private final IBrailleDisplay.Stub display = new IBrailleDisplay.Stub() {
         @Override public void onHostConnected(IBrailleDisplayHost h) {
             host = h;
-            if (orbit != null) startDisplay(); // Orbit was already connected
+            if (orbit == null) return; // both happen once Orbit is connected
+            register();
+            startDisplay();
         }
         @Override public void showCells(byte[] cells) { }
     };
@@ -113,9 +116,13 @@ public final class OrbitDisplayService extends Service {
         orbit = null;
     }
 
+    /**
+     * Take keypad events, once both Orbit and Backtalk are connected. Backtalk connects only after checking that the
+     * user allows this display, so while it isn't in use Orbit's routing and speech are left alone.
+     */
     private void register() {
         IScreenReaderService s = orbit;
-        if (s == null) return;
+        if (s == null || host == null) return;
         try { s.registerKeypadCallback(KEYPAD_NAME, keypadCallback); } catch (RemoteException e) { Log.e(TAG, "registerKeypadCallback", e); }
     }
 

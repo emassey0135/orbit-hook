@@ -21,7 +21,7 @@ import org.luckypray.dexkit.result.MethodDataList;
  * Gives Backtalk's Orbit braille display ({@link OrbitDisplayService}) the keypad while Backtalk reads the app in front,
  * including the command chords that Orbit's keypad router otherwise swallows.
  *
- * <p>While the app in front is one Backtalk drives ({@link Hook#backtalkForeground}: a third-party app, another reader
+ * <p>While the app in front is one Backtalk drives ({@link Hook#backtalkForeground}: a third-party app, Backtalk
  * enabled, not self-voicing) and the Orbit display is registered with Orbit's keypad, each key first moves the keypad
  * focus (the router state's focused-package field) to the display, so Orbit's own routing sends it the keys Orbit doesn't
  * keep. Orbit's keypad router handles every combination chord (action 3) inline and returns before the
@@ -33,25 +33,43 @@ import org.luckypray.dexkit.result.MethodDataList;
  * have: HOME and the press of 0. Without the display registered they stay with Orbit, so HOME can't go dead. The
  * Player's Menu and volume combos stay with Orbit.
  *
+ * <p>It also keeps hold of Orbit's keypad registry, so that {@link Hook} can tell whether the Orbit display is
+ * registered.
+ *
  * <p>The router is an obfuscated synthetic method with no stable name, so it is located with DexKit by a log string
- * that only it contains. Everything read off it afterwards is found by field <em>type</em> (each is unique on its
+ * that only it contains, as is the method that registers keypad callbacks. Everything read off it afterwards is found by field <em>type</em> (each is unique on its
  * class), not by obfuscated field name, so an Orbit update that only renames members does not break it.
  */
 final class ChordFreer {
     private static final String TAG = Hook.TAG;
     private static final String ANCHOR = "handleScreenReaderCombination() called with 111";
+    private static final String REGISTER_ANCHOR = "Registered keypad callback for: ";
     /** Orbit Player keypad codes: digits are 1000-1009, then star, pound, arrows, OK, HOME, MENU, BACK, RECORD, volume. */
     private static final int PLAYER_0 = 1000, PLAYER_HOME = 1017, PLAYER_LAST = 1022;
 
     /** Cache of the single-Bundle callback method per callback implementation class. */
     private static final ConcurrentHashMap<Class<?>, Method> CALLBACK = new ConcurrentHashMap<>();
 
+    /** Orbit's keypad registry (package name to keypad callback), kept from the first registration. */
+    private static volatile ConcurrentHashMap<?, ?> registry;
+
     private ChordFreer() { }
 
-    /** Find Orbit's keypad router and hook it so chords reach the aliased callback. Safe to fail; speech filtering is separate. */
+    /**
+     * Find Orbit's keypad router and hook it so chords reach the Orbit display, and hook keypad registration to keep
+     * the registry. Safe to fail: without both, the display is never seen as registered, so Orbit keeps speaking.
+     */
     static void install(DexKitBridge bridge, ClassLoader cl) {
-        Method router = locate(bridge, cl);
+        Method router = locate(bridge, cl, "keypad router", ANCHOR, 0);
         if (router == null) { Log.e(TAG, "keypad router not found; chord pass-through disabled"); return; }
+        Method register = locate(bridge, cl, "keypad registration", REGISTER_ANCHOR, 2);
+        if (register == null) { Log.e(TAG, "keypad registration not found; chord pass-through disabled"); return; }
+        XposedBridge.hookMethod(register, new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam param) {
+                if (registry != null) return;
+                try { registry = registryOf(param.thisObject); } catch (Throwable t) { Log.e(TAG, "keypad registry not read", t); }
+            }
+        });
         XposedBridge.hookMethod(router, new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam param) {
                 try { route(param); } catch (Throwable t) { Log.e(TAG, "chord pass-through failed", t); }
@@ -60,18 +78,32 @@ final class ChordFreer {
         Log.i(TAG, "chord pass-through installed on " + router.getDeclaringClass().getName() + "." + router.getName());
     }
 
-    private static Method locate(DexKitBridge bridge, ClassLoader cl) {
+    /** Whether the Orbit display is registered with Orbit's keypad. Orbit drops a callback whose process has died. */
+    static boolean displayRegistered() {
+        ConcurrentHashMap<?, ?> r = registry;
+        return r != null && r.containsKey(OrbitDisplayService.KEYPAD_NAME);
+    }
+
+    private static Method locate(DexKitBridge bridge, ClassLoader cl, String what, String anchor, int paramCount) {
         try {
             MethodDataList found = bridge.findMethod(FindMethod.create().matcher(
-                    MethodMatcher.create().usingStrings(ANCHOR).returnType("void").paramCount(0)));
+                    MethodMatcher.create().usingStrings(anchor).returnType("void").paramCount(paramCount)));
             if (found.isEmpty()) return null;
             MethodData md = found.get(0);
-            Log.i(TAG, "keypad router = " + md.getClassName() + "." + md.getName());
+            Log.i(TAG, what + " = " + md.getClassName() + "." + md.getName());
             return md.getMethodInstance(cl);
         } catch (Throwable t) {
-            Log.e(TAG, "DexKit lookup of keypad router failed", t);
+            Log.e(TAG, "DexKit lookup of " + what + " failed", t);
             return null;
         }
+    }
+
+    /** The keypad router state's registry: its only ConcurrentHashMap field. */
+    private static ConcurrentHashMap<?, ?> registryOf(Object owner) throws IllegalAccessException {
+        for (Field f : owner.getClass().getDeclaredFields()) {
+            if (f.getType() == ConcurrentHashMap.class) { f.setAccessible(true); return (ConcurrentHashMap<?, ?>) f.get(owner); }
+        }
+        return null;
     }
 
     private static void route(XC_MethodHook.MethodHookParam param) throws Exception {
@@ -87,7 +119,7 @@ final class ChordFreer {
         }
         if (bundle == null || owner == null) return;
         if (RemoteMode.onKey(bundle)) { param.setResult(null); return; } // any app: remote mode shortcuts
-        if (!Hook.backtalkForeground) return;            // only when the foreground app is BackTalk-handled (NOT self-voicing / com.orbit)
+        if (!Hook.backtalkForeground) return;            // only when the foreground app is one Backtalk handles (not self-voicing or Orbit's)
 
         ConcurrentHashMap<?, ?> registry = null;
         PowerManager power = null;
