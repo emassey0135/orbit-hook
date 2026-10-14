@@ -16,12 +16,19 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 
 /**
- * Fixes "Dismiss" acting like snooze in com.orbit.alarmclock.
+ * Fixes two bugs in com.orbit.alarmclock.
  *
- * The app schedules every alarm's next repeat under request code 1, while Dismiss cancels only the alarm's own
- * request code, so the repeat survives and the alarm rings again. Here each repeat gets its own request code
- * (the negative of the alarm id; ids are positive epoch seconds); cancelling an alarm also cancels its repeat; and the app's own boot-time reschedule
- * is run afterwards, because Dismiss also leaves the alarm's daily or weekly schedule cancelled.
+ * <p>"Dismiss" acts like snooze. The app schedules every alarm's next repeat under request code 1, while Dismiss
+ * cancels only the alarm's own request code, so the repeat survives and the alarm rings again. Here each repeat gets
+ * its own request code (the negative of the alarm id; ids are positive epoch seconds); cancelling an alarm also
+ * cancels its repeat; and the app's own boot-time reschedule is run afterwards, because Dismiss also leaves the
+ * alarm's daily or weekly schedule cancelled.
+ *
+ * <p>Daily and weekly alarms often don't ring. The app sets an exact alarm and then, with the same PendingIntent, an
+ * inexact repeating one, which replaces it; Android may deliver that late, and holds it back while the device is idle,
+ * but the app rings only if the clock still reads the alarm's hour and minute. Here the repeating alarm becomes an
+ * alarm clock alarm for its next time, which is exact and wakes the device, and the app's reschedule runs a minute
+ * after it to set the time after that.
  */
 final class AlarmFix {
     static final String TAG = "OrbitHook.Alarm";
@@ -31,7 +38,11 @@ final class AlarmFix {
     static final String RESCHEDULE_ACTION = "com.orbit.ALARM_DATA";
     /** The app's own code for every repeat; repeats are the only alarm intents it makes without "fromWhere". */
     static final int APP_REPEAT_CODE = 1;
-    /** Request code of the reschedule broadcast; repeat codes are -id, which is never MIN_VALUE. */
+    /**
+     * Request code of the reschedule broadcast after a cancel. The reschedule after each daily or weekly alarm uses the
+     * alarm's id instead, so that each alarm has its own; these never clash with the alarms' own codes, since they are
+     * for another receiver.
+     */
     static final int RESCHEDULE_CODE = Integer.MIN_VALUE;
 
     /** Set while this class cancels a repeat itself, so that cancel isn't handled as the app's. */
@@ -81,7 +92,44 @@ final class AlarmFix {
                 }
             }
         });
+        Method setRepeating = AlarmManager.class.getDeclaredMethod("setRepeating", int.class, long.class, long.class,
+                PendingIntent.class);
+        XposedBridge.hookMethod(setRepeating, new XC_MethodHook() {
+            @Override protected void beforeHookedMethod(MethodHookParam param) {
+                try {
+                    PendingIntent alarm = (PendingIntent) param.args[3];
+                    Integer id = alarm == null ? null : alarmIds.get(alarm);
+                    if (id == null) return; // not one of the app's alarms
+                    Context context = currentApplication();
+                    if (context == null) return;
+                    setExact(context, (AlarmManager) param.thisObject, id, alarm, (long) param.args[1], (long) param.args[2]);
+                    param.setResult(null);
+                } catch (Throwable t) {
+                    Log.e(TAG, "exact alarm not set; leaving the app's repeating alarm", t);
+                }
+            }
+        });
         Log.i(TAG, "installed");
+    }
+
+    /**
+     * Instead of a repeating alarm from {@code first} every {@code interval}: an alarm clock alarm at its next time,
+     * and the app's reschedule a minute after, which sets the time after that the same way.
+     */
+    static void setExact(Context context, AlarmManager alarms, int id, PendingIntent alarm, long first, long interval) {
+        long now = System.currentTimeMillis();
+        long next = first;
+        if (next <= now) next += ((now - next) / interval + 1) * interval;
+        Intent open = context.getPackageManager().getLaunchIntentForPackage(PACKAGE);
+        PendingIntent show = open == null ? null
+                : PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        alarms.setAlarmClock(new AlarmManager.AlarmClockInfo(next, show), alarm);
+        Intent reschedule = new Intent(RESCHEDULE_ACTION).setClassName(PACKAGE, RESCHEDULE_RECEIVER)
+                .putExtra("isDeviceRestarted", false);
+        PendingIntent after = PendingIntent.getBroadcast(context, id, reschedule,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next + 61_000, after);
+        Log.i(TAG, "alarm " + id + " set exactly for " + new java.util.Date(next));
     }
 
     static int repeatCode(int alarmId) {
