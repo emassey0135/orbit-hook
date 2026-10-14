@@ -69,8 +69,13 @@ public final class OrbitDisplayService extends Service {
     private final ServiceConnection orbitConnection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             orbit = IScreenReaderService.Stub.asInterface(binder);
-            try { orbit.registerSDKCallback(sdkCallback); } catch (RemoteException e) { Log.e(TAG, "registerSDKCallback", e); }
-            register();
+            // Orbit calls onScreenReaderReady straight away if it is ready, or once it is, which registers.
+            try {
+                orbit.registerSDKCallback(sdkCallback);
+            } catch (RemoteException e) {
+                Log.e(TAG, "registerSDKCallback", e);
+                register();
+            }
             startDisplay();
         }
         @Override public void onServiceDisconnected(ComponentName name) {
