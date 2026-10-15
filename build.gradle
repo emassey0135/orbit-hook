@@ -19,8 +19,8 @@ android {
         minSdk = 30
         // The Orbit Speak and Orbit Player run Android 11.
         targetSdk = 30
-        versionCode = 3
-        versionName = '0.3.0'
+        versionCode = 4
+        versionName = '0.4.0'
         // The Orbit Speak and Orbit Player are 64-bit ARM, and the Orbit apps the hook runs in start as 64-bit
         // processes, so only DexKit's arm64 library is needed.
         ndk {

@@ -23,9 +23,10 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import org.luckypray.dexkit.DexKitBridge;
 
 /**
- * Keeps Orbit's screen reader out of apps that something else speaks for (and loads {@link AlarmFix} into the alarm clock):
- * apps that declare the self-voicing meta-data, and third-party apps while Backtalk reads them with the Orbit display.
- * Only Android API names are hooked, so obfuscation in Orbit's builds doesn't affect it.
+ * Keeps Orbit's screen reader out of apps that something else speaks for: apps that declare the self-voicing
+ * meta-data, and third-party apps while Backtalk reads them with the Orbit display. Only Android API names are hooked,
+ * so obfuscation in Orbit's builds doesn't affect it. It also loads {@link AlarmFix} into the alarm clock and
+ * {@link UpdaterFix} into the updater.
  */
 public class Hook implements IXposedHookLoadPackage {
     static final String TAG = "OrbitHook";
@@ -89,6 +90,10 @@ public class Hook implements IXposedHookLoadPackage {
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lp) throws Throwable {
         if (AlarmFix.PACKAGE.equals(lp.packageName)) {
             try { new AlarmFix().install(); } catch (Throwable t) { Log.e(TAG, "alarm fix not installed", t); }
+            return;
+        }
+        if (UpdaterFix.PACKAGE.equals(lp.packageName)) {
+            try { UpdaterFix.install(lp.classLoader); } catch (Throwable t) { Log.e(TAG, "updater fix not installed", t); }
             return;
         }
         if (!TARGET.equals(lp.packageName)) return;
