@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'orbit-hook'
+rootProject.name = 'satellite-hook'
 
 // Compile-only declarations of the Xposed API that LSPosed provides at runtime.
 include ':xposed-api-stubs'

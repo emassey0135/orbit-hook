@@ -11,11 +11,11 @@ if (keystoreFile.exists()) {
 }
 
 android {
-    namespace = 'dev.emassey0135.orbithook'
+    namespace = 'dev.emassey0135.satellite.hook'
     compileSdk = 37
 
     defaultConfig {
-        applicationId = 'dev.emassey0135.orbithook'
+        applicationId = 'dev.emassey0135.satellite.hook'
         minSdk = 30
         // The Orbit Speak and Orbit Player run Android 11.
         targetSdk = 30

@@ -6,9 +6,9 @@
         <package android:name="com.orbit.screenreader" />
         <package android:name="fyi.quin.backtalk" />
     </queries>
-    <application android:label="Orbit screen reader hook" android:hasCode="true">
+    <application android:label="Satellite Hook" android:hasCode="true">
         <meta-data android:name="xposedmodule" android:value="true" />
-        <meta-data android:name="xposeddescription" android:value="Keeps Orbit's screen reader out of self-voicing apps and apps Backtalk reads, and gives Backtalk the Orbit's keys as a braille display" />
+        <meta-data android:name="xposeddescription" android:value="Part of Satellite. Keeps Orbit's screen reader out of self-voicing apps and apps Backtalk reads, gives Backtalk the Orbit's keys as a braille display, and fixes Orbit's alarm clock and updater" />
         <meta-data android:name="xposedminversion" android:value="93" />
 
         <!-- The Orbit's keys as a braille display for Backtalk; only Backtalk can bind it. -->

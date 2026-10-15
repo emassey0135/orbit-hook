@@ -22,7 +22,7 @@ jobs:
     permissions:
       contents: write
     env:
-      APK: orbit-hook.apk
+      APK: satellite-hook.apk
     steps:
       - uses: actions/checkout@v7
         with:

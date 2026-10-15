@@ -1,4 +1,4 @@
-package dev.emassey0135.orbithook;
+package dev.emassey0135.satellite.hook;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -31,7 +31,7 @@ import de.robv.android.xposed.XposedBridge;
  * after it to set the time after that.
  */
 final class AlarmFix {
-    static final String TAG = "OrbitHook.Alarm";
+    static final String TAG = "SatelliteHook.Alarm";
     static final String PACKAGE = "com.orbit.alarmclock";
     static final String RECEIVER = "com.orbit.alarmclock.receiver.AlarmReceiver";
     static final String RESCHEDULE_RECEIVER = "com.orbit.alarmclock.receiver.MyBroadcastReceiver";

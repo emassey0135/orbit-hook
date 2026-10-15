@@ -1,4 +1,4 @@
-package dev.emassey0135.orbithook;
+package dev.emassey0135.satellite.hook;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -25,7 +25,7 @@ import de.robv.android.xposed.XposedBridge;
  * restarted through root, which the updater already uses to install updates.
  */
 final class UpdaterFix {
-    static final String TAG = "OrbitHook.Updater";
+    static final String TAG = "SatelliteHook.Updater";
     static final String PACKAGE = "com.orbit.updater";
     private static final String APPLICATION = "com.orbit.olympus_sdk.OlympusApplication";
     private static final int TRIES = 10;

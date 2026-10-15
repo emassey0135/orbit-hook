@@ -1,4 +1,4 @@
-package dev.emassey0135.orbithook;
+package dev.emassey0135.satellite.hook;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;

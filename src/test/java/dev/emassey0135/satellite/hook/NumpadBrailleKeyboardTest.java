@@ -1,4 +1,4 @@
-package dev.emassey0135.orbithook;
+package dev.emassey0135.satellite.hook;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

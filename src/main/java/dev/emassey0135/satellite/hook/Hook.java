@@ -1,4 +1,4 @@
-package dev.emassey0135.orbithook;
+package dev.emassey0135.satellite.hook;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
@@ -29,7 +29,7 @@ import org.luckypray.dexkit.DexKitBridge;
  * {@link UpdaterFix} into the updater.
  */
 public class Hook implements IXposedHookLoadPackage {
-    static final String TAG = "OrbitHook";
+    static final String TAG = "SatelliteHook";
     static final String TARGET = "com.orbit.screenreader";
     static final String SERVICE = "com.orbit.screenreader.ScreenReaderAccessibilityService";
     /** Package name Orbit sees for windows it should leave alone; any com.orbit. name puts it in native mode. */
