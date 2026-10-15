@@ -3,7 +3,7 @@ plugins {
 }
 
 // Release builds are signed with the key described in keystore.properties (not committed), when it exists:
-// storeFile, storePassword, keyAlias, keyPassword.
+// storeFile, storePassword, keyAlias, keyPassword. GitHub Actions writes it from the repository's secrets.
 def keystoreFile = rootProject.file('keystore.properties')
 def keystore = new Properties()
 if (keystoreFile.exists()) {
@@ -19,8 +19,10 @@ android {
         minSdk = 30
         // The Orbit Speak and Orbit Player run Android 11.
         targetSdk = 30
-        versionCode = 5
-        versionName = '0.5.0'
+        // GitHub Actions gives each build the number of commits as its version code, so that every build is newer than
+        // the ones before it, and adds -dev.N to the name of builds that aren't releases.
+        versionCode = (findProperty('versionCode') ?: '5') as int
+        versionName = '0.5.0' + (findProperty('versionSuffix') ?: '')
         // The Orbit Speak and Orbit Player are 64-bit ARM, and the Orbit apps the hook runs in start as 64-bit
         // processes, so only DexKit's arm64 library is needed.
         ndk {
