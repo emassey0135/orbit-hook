@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Lets Backtalk use the Orbit's keys as a braille display. Grant it with
-         adb shell pm grant dev.emassey0135.orbithook fyi.quin.backtalk.permission.BRAILLE_DISPLAY -->
+    <!-- Lets this app ask to be Backtalk's braille display; Backtalk uses it once the user allows it. -->
     <uses-permission android:name="fyi.quin.backtalk.permission.BRAILLE_DISPLAY" />
     <queries>
         <package android:name="com.orbit.screenreader" />
