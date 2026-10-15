@@ -44,6 +44,8 @@ final class ChordFreer {
     private static final String TAG = Hook.TAG;
     private static final String ANCHOR = "handleScreenReaderCombination() called with 111";
     private static final String REGISTER_ANCHOR = "Registered keypad callback for: ";
+    /** Orbit's ways of dropping a keypad callback: an app unregistering, and an app's process dying. */
+    private static final String[] UNREGISTER_ANCHORS = {"Unregistering keypad callback for package: ", " died, removing"};
     /** Orbit Player keypad codes: digits are 1000-1009, then star, pound, arrows, OK, HOME, MENU, BACK, RECORD, volume. */
     private static final int PLAYER_0 = 1000, PLAYER_HOME = 1017, PLAYER_LAST = 1022;
 
@@ -52,6 +54,8 @@ final class ChordFreer {
 
     /** Orbit's keypad registry (package name to keypad callback), kept from the first registration. */
     private static volatile ConcurrentHashMap<?, ?> registry;
+    /** Whether the Orbit display was registered when last looked at. */
+    private static volatile boolean wasRegistered;
 
     private ChordFreer() { }
 
@@ -66,10 +70,18 @@ final class ChordFreer {
         if (register == null) { Hook.status("keypad registration not found; chord pass-through disabled"); return; }
         XposedBridge.hookMethod(register, new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam param) {
-                if (registry != null) return;
-                try { registry = registryOf(param.thisObject); } catch (Throwable t) { Log.e(TAG, "keypad registry not read", t); }
+                if (registry == null) {
+                    try { registry = registryOf(param.thisObject); } catch (Throwable t) { Log.e(TAG, "keypad registry not read", t); }
+                }
+                registrationMaybeChanged();
             }
         });
+        XC_MethodHook dropped = new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam param) { registrationMaybeChanged(); }
+        };
+        for (String anchor : UNREGISTER_ANCHORS) {
+            for (Method m : locateAll(bridge, cl, anchor)) XposedBridge.hookMethod(m, dropped);
+        }
         XposedBridge.hookMethod(router, new XC_MethodHook() {
             @Override protected void beforeHookedMethod(MethodHookParam param) {
                 try { route(param); } catch (Throwable t) { Log.e(TAG, "chord pass-through failed", t); }
@@ -82,6 +94,34 @@ final class ChordFreer {
     static boolean displayRegistered() {
         ConcurrentHashMap<?, ?> r = registry;
         return r != null && r.containsKey(OrbitDisplayService.KEYPAD_NAME);
+    }
+
+    /**
+     * When the Orbit display comes or goes, Orbit's screen reader is told again about the window in front. Orbit decides
+     * whether to read it, and where its keys go, only when a window appears, so otherwise one shown to it as Orbit's own
+     * while Backtalk read it would stay that way after the display went, with nothing reading it and the keys going
+     * nowhere.
+     */
+    private static void registrationMaybeChanged() {
+        boolean registered = displayRegistered();
+        if (registered == wasRegistered) return;
+        wasRegistered = registered;
+        Hook.replayForeground();
+    }
+
+    /** Every method that uses {@code anchor}, which may be none. */
+    private static java.util.List<Method> locateAll(DexKitBridge bridge, ClassLoader cl, String anchor) {
+        java.util.List<Method> methods = new java.util.ArrayList<>();
+        try {
+            for (MethodData md : bridge.findMethod(FindMethod.create().matcher(
+                    MethodMatcher.create().usingStrings(anchor).returnType("void")))) {
+                Log.i(TAG, "keypad callback removal = " + md.getClassName() + "." + md.getName());
+                methods.add(md.getMethodInstance(cl));
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "DexKit lookup of \"" + anchor + "\" failed", t);
+        }
+        return methods;
     }
 
     private static Method locate(DexKitBridge bridge, ClassLoader cl, String what, String anchor, int paramCount) {

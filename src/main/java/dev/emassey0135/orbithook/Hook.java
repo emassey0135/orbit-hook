@@ -50,6 +50,29 @@ public class Hook implements IXposedHookLoadPackage {
     final Map<String, long[]> selfVoicing = new HashMap<>();
 
     /**
+     * Tells Orbit's screen reader again about the window in front, through {@link #filter}, as if it had just appeared,
+     * so that it reads it or leaves it alone, and sends its keys, as it now should.
+     */
+    static void replayForeground() {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            try {
+                AccessibilityService service = (AccessibilityService) context;
+                if (service == null) return;
+                AccessibilityNodeInfo root = service.getRootInActiveWindow();
+                if (root == null) return;
+                AccessibilityEvent event = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+                event.setPackageName(root.getPackageName());
+                event.setClassName(root.getClassName());
+                root.recycle();
+                Log.d(TAG, "window of " + event.getPackageName() + " shown to Orbit again");
+                service.onAccessibilityEvent(event);
+            } catch (Throwable t) {
+                Log.e(TAG, "window not shown to Orbit again", t);
+            }
+        });
+    }
+
+    /**
      * Log how starting up went, also to LSPosed's own log, which keeps all of each boot whatever the size of Android's
      * log. Setup reads it there to check that the hook works.
      */
