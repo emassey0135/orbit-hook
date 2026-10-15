@@ -89,11 +89,11 @@ public class Hook implements IXposedHookLoadPackage {
 
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lp) throws Throwable {
         if (AlarmFix.PACKAGE.equals(lp.packageName)) {
-            try { new AlarmFix().install(); } catch (Throwable t) { Log.e(TAG, "alarm fix not installed", t); }
+            try { new AlarmFix().install(); } catch (Throwable t) { status("alarm fix not installed", t); }
             return;
         }
         if (UpdaterFix.PACKAGE.equals(lp.packageName)) {
-            try { UpdaterFix.install(lp.classLoader); } catch (Throwable t) { Log.e(TAG, "updater fix not installed", t); }
+            try { UpdaterFix.install(lp.classLoader); } catch (Throwable t) { status("updater fix not installed", t); }
             return;
         }
         if (!TARGET.equals(lp.packageName)) return;
@@ -161,7 +161,7 @@ public class Hook implements IXposedHookLoadPackage {
      * it Backtalk can't be used from the keypad, so Orbit keeps speaking rather than leave the app silent.
      */
     boolean handledElsewhere(Context context, String pkg) {
-        if (pkg.startsWith("com.orbit.") || pkg.contains("inputmethod")) return false;
+        if (orbitReads(pkg)) return false;
         return isSelfVoicing(context, pkg) || (backtalkEnabled(context) && ChordFreer.displayRegistered());
     }
 
@@ -170,8 +170,13 @@ public class Hook implements IXposedHookLoadPackage {
      * {@link ChordFreer} checks that the Orbit display is registered on each key, so it doesn't matter here.
      */
     boolean backtalkHandled(Context context, String pkg) {
-        if (pkg.startsWith("com.orbit.") || pkg.contains("inputmethod")) return false;
+        if (orbitReads(pkg)) return false;
         return backtalkEnabled(context) && !isSelfVoicing(context, pkg);
+    }
+
+    /** Orbit's own apps and keyboards, which Orbit's screen reader always reads. */
+    static boolean orbitReads(String pkg) {
+        return pkg.startsWith("com.orbit.") || pkg.contains("inputmethod");
     }
 
     boolean backtalkEnabled(Context context) {

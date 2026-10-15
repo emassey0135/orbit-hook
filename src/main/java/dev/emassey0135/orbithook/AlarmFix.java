@@ -124,12 +124,15 @@ final class AlarmFix {
         PendingIntent show = open == null ? null
                 : PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         alarms.setAlarmClock(new AlarmManager.AlarmClockInfo(next, show), alarm);
-        Intent reschedule = new Intent(RESCHEDULE_ACTION).setClassName(PACKAGE, RESCHEDULE_RECEIVER)
-                .putExtra("isDeviceRestarted", false);
-        PendingIntent after = PendingIntent.getBroadcast(context, id, reschedule,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next + 61_000, after);
+        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next + 61_000, reschedule(context, id));
         Log.i(TAG, "alarm " + id + " set exactly for " + new java.util.Date(next));
+    }
+
+    /** The app's boot-time reschedule, which sets every alarm again, as a broadcast under {@code code}. */
+    static PendingIntent reschedule(Context context, int code) {
+        Intent intent = new Intent(RESCHEDULE_ACTION).setClassName(PACKAGE, RESCHEDULE_RECEIVER)
+                .putExtra("isDeviceRestarted", false);
+        return PendingIntent.getBroadcast(context, code, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     static int repeatCode(int alarmId) {
@@ -165,13 +168,9 @@ final class AlarmFix {
      * own minute would be re-armed for a time that has just passed, fire at once, and match the clock again.
      */
     static void scheduleReschedule(Context context, AlarmManager alarms) {
-        Intent intent = new Intent(RESCHEDULE_ACTION).setClassName(PACKAGE, RESCHEDULE_RECEIVER)
-                .putExtra("isDeviceRestarted", false);
-        PendingIntent pi = PendingIntent.getBroadcast(context, RESCHEDULE_CODE, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         long now = System.currentTimeMillis();
         long nextMinute = now - now % 60_000 + 60_000 + 2_000;
-        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextMinute, pi);
+        alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextMinute, reschedule(context, RESCHEDULE_CODE));
         Log.i(TAG, "alarm reschedule set for " + (nextMinute - now) / 1000 + "s from now");
     }
 }

@@ -2,7 +2,6 @@ package dev.emassey0135.orbithook;
 
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.util.Log;
@@ -85,10 +84,8 @@ final class UpdaterFix {
             }
             @Override public void onServiceDisconnected(ComponentName name) { }
         };
-        Intent intent = new Intent("com.orbit.screenreader.IScreenReaderService").setComponent(new ComponentName(
-                "com.orbit.screenreader", "com.orbit.screenreader.service.ScreenReaderBoundService"));
         try {
-            if (!context.bindService(intent, connection, Context.BIND_AUTO_CREATE)) return false;
+            if (!context.bindService(OrbitScreenReader.bindIntent(), connection, Context.BIND_AUTO_CREATE)) return false;
             done.await(TRY_INTERVAL_MS, TimeUnit.MILLISECONDS);
             return asked[0];
         } catch (Exception e) {

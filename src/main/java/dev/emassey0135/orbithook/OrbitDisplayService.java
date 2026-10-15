@@ -108,9 +108,7 @@ public final class OrbitDisplayService extends Service {
 
     private void bindOrbit() {
         if (bound) return;
-        Intent intent = new Intent("com.orbit.screenreader.IScreenReaderService").setComponent(new ComponentName(
-                "com.orbit.screenreader", "com.orbit.screenreader.service.ScreenReaderBoundService"));
-        bound = bindService(intent, orbitConnection, BIND_AUTO_CREATE);
+        bound = bindService(OrbitScreenReader.bindIntent(), orbitConnection, BIND_AUTO_CREATE);
         if (!bound) Log.e(TAG, "couldn't bind Orbit's screen reader");
     }
 

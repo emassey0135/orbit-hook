@@ -15,7 +15,6 @@ import org.luckypray.dexkit.DexKitBridge;
 import org.luckypray.dexkit.query.FindMethod;
 import org.luckypray.dexkit.query.matchers.MethodMatcher;
 import org.luckypray.dexkit.result.MethodData;
-import org.luckypray.dexkit.result.MethodDataList;
 
 /**
  * Gives Backtalk's Orbit braille display ({@link OrbitDisplayService}) the keypad while Backtalk reads the app in front,
@@ -111,31 +110,27 @@ final class ChordFreer {
 
     /** Every method that uses {@code anchor}, which may be none. */
     private static java.util.List<Method> locateAll(DexKitBridge bridge, ClassLoader cl, String anchor) {
+        return find(bridge, cl, "keypad callback removal", MethodMatcher.create().usingStrings(anchor).returnType("void"));
+    }
+
+    /** The method with {@code paramCount} parameters that uses {@code anchor}, or null. */
+    private static Method locate(DexKitBridge bridge, ClassLoader cl, String what, String anchor, int paramCount) {
+        java.util.List<Method> found = find(bridge, cl, what,
+                MethodMatcher.create().usingStrings(anchor).returnType("void").paramCount(paramCount));
+        return found.isEmpty() ? null : found.get(0);
+    }
+
+    private static java.util.List<Method> find(DexKitBridge bridge, ClassLoader cl, String what, MethodMatcher matcher) {
         java.util.List<Method> methods = new java.util.ArrayList<>();
         try {
-            for (MethodData md : bridge.findMethod(FindMethod.create().matcher(
-                    MethodMatcher.create().usingStrings(anchor).returnType("void")))) {
-                Log.i(TAG, "keypad callback removal = " + md.getClassName() + "." + md.getName());
+            for (MethodData md : bridge.findMethod(FindMethod.create().matcher(matcher))) {
+                Log.i(TAG, what + " = " + md.getClassName() + "." + md.getName());
                 methods.add(md.getMethodInstance(cl));
             }
         } catch (Throwable t) {
-            Log.e(TAG, "DexKit lookup of \"" + anchor + "\" failed", t);
+            Hook.status("DexKit lookup of " + what + " failed", t);
         }
         return methods;
-    }
-
-    private static Method locate(DexKitBridge bridge, ClassLoader cl, String what, String anchor, int paramCount) {
-        try {
-            MethodDataList found = bridge.findMethod(FindMethod.create().matcher(
-                    MethodMatcher.create().usingStrings(anchor).returnType("void").paramCount(paramCount)));
-            if (found.isEmpty()) return null;
-            MethodData md = found.get(0);
-            Log.i(TAG, what + " = " + md.getClassName() + "." + md.getName());
-            return md.getMethodInstance(cl);
-        } catch (Throwable t) {
-            Hook.status("DexKit lookup of " + what + " failed", t);
-            return null;
-        }
     }
 
     /** The keypad router state's registry: its only ConcurrentHashMap field. */
