@@ -69,12 +69,16 @@ jobs:
       - name: Build
         run: ./gradlew assembleRelease -PversionCode="$VERSION_CODE" -PversionSuffix="$VERSION_SUFFIX"
 
-      - name: Signing certificate
+      - name: Signing certificate and version file
         if: github.event_name == 'push'
         run: |
           cp build/outputs/apk/release/*-release.apk "$APK"
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$apksigner" verify --print-certs "$APK" | grep SHA-256
+          # The launcher reads this to tell whether the release is newer than what is installed, without downloading it.
+          name=$(sed -n "s/.*versionName = '\([^']*\)'.*/\1/p" build.gradle)
+          printf '{"versionCode": %s, "versionName": "%s"}\n' "$VERSION_CODE" "$name$VERSION_SUFFIX" > version.json
+          cat version.json
 
       - name: Publish the dev build
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -82,14 +86,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete dev --cleanup-tag --yes || true
-          gh release create dev "$APK" --prerelease --target "$GITHUB_SHA" --title "Development build" \
+          gh release create dev "$APK" version.json --prerelease --target "$GITHUB_SHA" --title "Development build" \
             --notes "Built from $GITHUB_SHA. Development builds aren't tested on the devices yet; setup installs releases."
 
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "$APK" --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "$APK" version.json --title "$GITHUB_REF_NAME" --generate-notes
 
       - name: Keep the APK
         uses: actions/upload-artifact@v7
